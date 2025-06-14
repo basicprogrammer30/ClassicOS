@@ -1127,8 +1127,25 @@ NtSetSystemPowerState(IN POWER_ACTION SystemAction,
                 /* Spend us -- when we wake up, the system is good to go down */
                 KeSuspendThread(KeGetCurrentThread());
                 Status = STATUS_SYSTEM_SHUTDOWN;
-                goto Exit;
+                
+                //  Send Shutdown Signal
+                __asm__ __volatile__ (
+                    "mov $0x5307, %%ax\n\t"
+                    "mov $0x0001, %%bx\n\t"  // Set APM version
+                    "mov $0x0003, %%cx\n\t"  // Device ID: All devices
+                    "int $0x15\n\t"
+                    "mov $0x530E, %%ax\n\t"  // APM power off function
+                    "mov $0x0001, %%bx\n\t"
+                    "int $0x15\n\t"
+                    :
+                    :
+                    : "ax", "bx", "cx"
+                );
 
+                // putw(0x604, 0x2000);   // QEMU ACPI shutdown port
+                // putw(0xB004, 0x2000);  // Bochs fallback
+                
+                        WRITE_PORT_USHORT((PUSHORT)0x2000, 0x604);
             }
             else
             {
@@ -1142,8 +1159,5 @@ NtSetSystemPowerState(IN POWER_ACTION SystemAction,
         DPRINT1("System is still up and running, you may not have chosen a yet supported power option: %u\n", PopAction.Action);
         break;
     }
-
-Exit:
-    /* We're done, return */
-    return Status;
+    return STATUS_SUCCESS;
 }
