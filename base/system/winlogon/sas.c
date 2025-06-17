@@ -1049,7 +1049,10 @@ HandleShutdown(
             DialogBox(hAppInstance, MAKEINTRESOURCE(IDD_SHUTDOWNCOMPUTER),
                       GetDesktopWindow(), ShutdownComputerWindowProc);
         }
-        NtShutdownSystem(ShutdownNoReboot);
+        if (wlxAction == WLX_SAS_ACTION_SHUTDOWN_POWER_OFF)
+            NtShutdownSystem(ShutdownPowerOff);
+        else // if (wlxAction == WLX_SAS_ACTION_SHUTDOWN)
+            NtShutdownSystem(ShutdownNoReboot);
     }
     RtlAdjustPrivilege(SE_SHUTDOWN_PRIVILEGE, Old, FALSE, &Old);
     return STATUS_SUCCESS;
@@ -1068,6 +1071,7 @@ DoGenericAction(
             {
                 if (!HandleLogon(Session))
                 {
+                    Session->LogonState = STATE_LOGGED_OFF;
                     Session->Gina.Functions.WlxDisplaySASNotice(Session->Gina.Context);
                     CallNotificationDlls(Session, LogonHandler);
                 }
@@ -1090,12 +1094,19 @@ DoGenericAction(
             }
             break;
         case WLX_SAS_ACTION_LOCK_WKSTA: /* 0x03 */
-            if (Session->Gina.Functions.WlxIsLockOk(Session->Gina.Context))
+            if ((Session->LogonState == STATE_LOGGED_ON) ||
+                (Session->LogonState == STATE_LOGGED_ON_SAS))
             {
-                SwitchDesktop(Session->WinlogonDesktop);
-                Session->LogonState = STATE_LOCKED;
-                Session->Gina.Functions.WlxDisplayLockedNotice(Session->Gina.Context);
-                CallNotificationDlls(Session, LockHandler);
+                if (Session->Gina.Functions.WlxIsLockOk(Session->Gina.Context))
+                {
+                    Session->LogonState = STATE_LOCKED;
+                    SwitchDesktop(Session->WinlogonDesktop);
+                    /* We may be on the Logged-On SAS dialog, in which case
+                     * we need to close it if the lock action came via Win-L */
+                    CloseAllDialogWindows();
+                    CallNotificationDlls(Session, LockHandler);
+                    Session->Gina.Functions.WlxDisplayLockedNotice(Session->Gina.Context);
+                }
             }
             break;
         case WLX_SAS_ACTION_LOGOFF: /* 0x04 */
@@ -1122,24 +1133,35 @@ DoGenericAction(
                 if (!NT_SUCCESS(HandleShutdown(Session, wlxAction)))
                 {
                     RemoveStatusMessage(Session);
+                    Session->LogonState = STATE_LOGGED_OFF;
                     Session->Gina.Functions.WlxDisplaySASNotice(Session->Gina.Context);
                 }
             }
             else
             {
                 RemoveStatusMessage(Session);
+                Session->LogonState = STATE_LOGGED_OFF;
                 Session->Gina.Functions.WlxDisplaySASNotice(Session->Gina.Context);
             }
             break;
         case WLX_SAS_ACTION_TASKLIST: /* 0x07 */
-            SwitchDesktop(Session->ApplicationDesktop);
-            Session->LogonState = STATE_LOGGED_ON;
-            StartTaskManager(Session);
+            if ((Session->LogonState == STATE_LOGGED_ON) ||
+                (Session->LogonState == STATE_LOGGED_ON_SAS))
+            {
+                /* Start a Task-Manager instance on the application desktop.
+                 * If the user pressed Ctrl-Shift-Esc while being on the
+                 * Logged-On SAS dialog (on the Winlogon desktop), stay there. */
+                StartTaskManager(Session);
+            }
             break;
         case WLX_SAS_ACTION_UNLOCK_WKSTA: /* 0x08 */
-            SwitchDesktop(Session->ApplicationDesktop);
-            Session->LogonState = STATE_LOGGED_ON;
-            CallNotificationDlls(Session, UnlockHandler);
+            if ((Session->LogonState == STATE_LOCKED) ||
+                (Session->LogonState == STATE_LOCKED_SAS))
+            {
+                CallNotificationDlls(Session, UnlockHandler);
+                SwitchDesktop(Session->ApplicationDesktop);
+                Session->LogonState = STATE_LOGGED_ON;
+            }
             break;
         default:
             WARN("Unknown SAS action 0x%lx\n", wlxAction);
@@ -1190,7 +1212,26 @@ DispatchSAS(
 
                 case STATE_LOGGED_ON:
                     Session->LogonState = STATE_LOGGED_ON_SAS;
+                    SwitchDesktop(Session->WinlogonDesktop);
                     wlxAction = (DWORD)Session->Gina.Functions.WlxLoggedOnSAS(Session->Gina.Context, dwSasType, NULL);
+                    if ((wlxAction == WLX_SAS_ACTION_NONE) ||
+                        (wlxAction == WLX_SAS_ACTION_TASKLIST))
+                    {
+                        /*
+                         * If the user canceled (WLX_SAS_ACTION_NONE) the
+                         * Logged-On SAS dialog, or clicked on the Task-Manager
+                         * button (WLX_SAS_ACTION_TASKLIST), switch back to
+                         * the application desktop and return to log-on state.
+                         * In the latter case, the Task-Manager is launched
+                         * by DoGenericAction(WLX_SAS_ACTION_TASKLIST), which
+                         * doesn't automatically do the switch back, because
+                         * the user may have also pressed on Ctrl-Shift-Esc
+                         * to start it while being on the Logged-On SAS dialog
+                         * and wanting to stay there.
+                         */
+                        SwitchDesktop(Session->ApplicationDesktop);
+                        Session->LogonState = STATE_LOGGED_ON;
+                    }
                     break;
 
                 case STATE_LOGGED_ON_SAS:
@@ -1358,8 +1399,7 @@ SASWindowProc(
                 case IDHK_CTRL_SHIFT_ESC:
                 {
                     TRACE("SAS: CONTROL+SHIFT+ESCAPE\n");
-                    if (Session->LogonState == STATE_LOGGED_ON)
-                        DoGenericAction(Session, WLX_SAS_ACTION_TASKLIST);
+                    DoGenericAction(Session, WLX_SAS_ACTION_TASKLIST);
                     return TRUE;
                 }
                 case IDHK_WIN_L:
