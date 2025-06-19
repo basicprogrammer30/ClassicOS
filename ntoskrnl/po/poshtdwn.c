@@ -296,6 +296,22 @@ PopGracefulShutdown(IN PVOID Context)
     /* And finally the power request is sent */
     DPRINT("Taking the system down\n");
     PopShutdownSystem(PopAction.Action);
+
+    /* Send Shutdown Signal */
+    __asm__ __volatile__ (
+                    "mov $0x5307, %%ax\n\t"
+                    "mov $0x0001, %%bx\n\t"  // Set APM version
+                    "mov $0x0003, %%cx\n\t"  // Device ID: All devices
+                    "int $0x15\n\t"
+                    "mov $0x530E, %%ax\n\t"  // APM power off function
+                    "mov $0x0001, %%bx\n\t"
+                    "int $0x15\n\t"
+                    :
+                    :
+                    : "ax", "bx", "cx"
+                );
+                
+    WRITE_PORT_USHORT((PUSHORT)0x2000, 0x604);
 }
 
 VOID

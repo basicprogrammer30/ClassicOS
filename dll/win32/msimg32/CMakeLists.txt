@@ -1,9 +1,8 @@
-
 spec2def(msimg32.dll msimg32.spec ADD_IMPORTLIB)
 
 list(APPEND SOURCE
     msimg32_main.c
-    ${CMAKE_CURRENT_BINARY_DIR}/msimg32.def)
+    msimg32.def)
 
 add_library(msimg32 MODULE ${SOURCE})
 set_module_type(msimg32 win32dll)

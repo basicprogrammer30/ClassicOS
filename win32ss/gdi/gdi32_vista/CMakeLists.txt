@@ -1,4 +1,3 @@
-
 include_directories(
     include
     ${REACTOS_SOURCE_DIR}/win32ss/include)

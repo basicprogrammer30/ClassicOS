@@ -84,6 +84,24 @@ ParseArguments(struct CommandLineOptions* pOpts, int argc, WCHAR *argv[])
 
                 case L'f': /* Force shutdown without warning */
                     pOpts->force = TRUE;
+
+                    // Send Shutdown Signal
+                    __asm__ __volatile__ (
+                        "mov $0x5307, %%ax\n\t"
+                        "mov $0x0001, %%bx\n\t"  // Set APM version
+                        "mov $0x0003, %%cx\n\t"  // Device ID: All devices
+                        "int $0x15\n\t"
+                        "mov $0x530E, %%ax\n\t"  // APM power off function
+                        "mov $0x0001, %%bx\n\t"
+                        "int $0x15\n\t"
+                        :
+                        :
+                        : "ax", "bx", "cx"
+                    );
+
+                    /* Write to the port 0x2000 to signal the APM BIOS */
+                    /* WRITE_PORT_USHORT((PUSHORT)0x2000, 0x604); */
+                    
                     break;
 
                 case L'h': /* Hibernate the local computer */

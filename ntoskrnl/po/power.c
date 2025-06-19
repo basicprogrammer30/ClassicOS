@@ -15,7 +15,7 @@
 
 /* GLOBALS *******************************************************************/
 
-typedef struct _POWER_STATE_TRAVERSE_CONTEXT
+typedef struct _POWER_STATE_TRAVERSE_CONTEXT////////////////////////////////////////
 {
     SYSTEM_POWER_STATE SystemPowerState;
     POWER_ACTION PowerAction;

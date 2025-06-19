@@ -35,3 +35,52 @@ void WINAPI vSetDdrawflag(void)
     FIXME("stub: vSetDrawFlag %u\n", vDrawflag);
     SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 }
+
+/******************************************************************************
+ *           AlphaBlend   (MSIMG32.@)
+ */
+BOOL WINAPI AlphaBlend(HDC hdcDest, int xDest, int yDest, int cxDest, int cyDest,
+                      HDC hdcSrc, int xSrc, int ySrc, int cxSrc, int cySrc,
+                      BLENDFUNCTION blendFunction)
+{
+    FIXME("stub\n");
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return FALSE;
+}
+
+/******************************************************************************
+ *           DllInitialize   (MSIMG32.@)
+ */
+BOOL WINAPI DllInitialize(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
+{
+    switch (fdwReason)
+    {
+        case DLL_PROCESS_ATTACH:
+            DisableThreadLibraryCalls(hinstDLL);
+            break;
+    }
+    return TRUE;
+}
+
+/******************************************************************************
+ *           GradientFill   (MSIMG32.@)
+ */
+BOOL WINAPI GradientFill(HDC hdc, PTRIVERTEX pVertex, ULONG nVertex,
+                        PVOID pMesh, ULONG nMesh, ULONG ulMode)
+{
+    FIXME("stub\n");
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return FALSE;
+}
+
+/******************************************************************************
+ *           TransparentBlt   (MSIMG32.@)
+ */
+BOOL WINAPI TransparentBlt(_In_ HDC hdcDest, _In_ int xDest, _In_ int yDest, _In_ int cxDest, _In_ int cyDest,
+                          _In_ HDC hdcSrc, _In_ int xSrc, _In_ int ySrc, _In_ int cxSrc, _In_ int cySrc,
+                          _In_ UINT colorTransparent)
+{
+    FIXME("stub\n");
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return FALSE;
+}
